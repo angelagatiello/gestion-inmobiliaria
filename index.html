@@ -1359,10 +1359,10 @@ function stubView(p, c) {
   var hasRc = !!(m.receipts && m.receipts[p.id]), canArch = !!(assetsApi && S.mode === 'cloud' && !S.demo && !RO());
   var rcBox = r.paid ? '<div class="rcbox"><b>' + (hasRc ? 'Recibo guardado \u2713' : 'Recibo listo') + '</b><div class="actions">' +
     (canArch ? '<button type="button" class="btn primary" data-act="pdf-save" data-id="' + p.id + '">' + (hasRc ? 'Volver a generar el recibo' : 'Generar y guardar recibo') + '</button>' +
-      (hasRc ? '<button type="button" class="btn" data-act="tab" data-top="1" data-tab="recibos">Ir a Recibos para descargarlo</button>' : '')
+      (hasRc ? '<button type="button" class="btn" data-act="tab" data-top="1" data-tab="recibos">Ir a Recibos para verlo y enviarlo</button>' : '')
       : '<button type="button" class="btn primary" data-act="pdf" data-id="' + p.id + '">Descargar recibo (PDF)</button>') +
     '<a class="btn wa" data-wa="' + p.id + '" target="_blank" rel="noopener" href="https://wa.me/">Enviar por WhatsApp</a></div>' +
-    '<p class="help">' + (canArch ? 'El recibo se guarda en la pesta\u00f1a <b>Recibos de alquileres</b>, con el nombre <b>' + esc(pdfName(p, key, true)) + '</b>. Desde all\u00ed lo descarg\u00e1s o lo mand\u00e1s por WhatsApp: no se descarga dos veces.' : 'Queda en la carpeta Descargas con el nombre <b>' + esc(pdfName(p, key, true)) + '</b>. Para mandarlo por WhatsApp, us\u00e1 el clip &#128206; &rarr; Documento.') + (p.phone ? '' : ' Si carg\u00e1s el WhatsApp del inquilino en Departamentos, se abre directo su chat.') + '</p></div>' : '';
+    '<p class="help">' + (canArch ? 'El recibo se guarda en la pesta\u00f1a <b>Recibos de alquileres</b>, con el nombre <b>' + esc(pdfName(p, key, true)) + '</b>. Desde all\u00ed lo ves y lo mand\u00e1s por WhatsApp: no se descarga dos veces.' : 'Queda en la carpeta Descargas con el nombre <b>' + esc(pdfName(p, key, true)) + '</b>. Para mandarlo por WhatsApp, us\u00e1 el clip &#128206; &rarr; Documento.') + (p.phone ? '' : ' Si carg\u00e1s el WhatsApp del inquilino en Departamentos, se abre directo su chat.') + '</p></div>' : '';
   var openS = S.ui.openC && S.ui.openC['s:' + p.id];
   return '<details class="cdet" data-cid="s:' + p.id + '"' + (openS ? ' open' : '') + '><summary><span class="csum st"><span class="cs-name"><b>' + esc(p.name || 'Sin nombre') + '</b><span class="tenant">' + esc(p.tenant || 'Sin inquilino') + (cmo ? ' · Recibo ' + cmo.n + ' de 12' : '') + '</span></span>' +
     pillHtml(r) + '<strong class="sum-total" data-bind="ptotal:' + p.id + '"></strong></span></summary>' +
@@ -1397,12 +1397,11 @@ function recibosView() {
       var x = rc[id], p = findProp(id), digits = String(p.phone || '').replace(/\D/g, ''), first = (p.tenant || '').trim().split(/\s+/)[0] || '';
       var msg = 'Hola' + (first ? ' ' + first : '') + ', te paso el recibo de ' + monthLabel(k) + ' de ' + (p.name || 'tu departamento') + '. ¡Gracias!';
       return '<div class="rcrow"><span class="rcn"><b>' + esc(x.name) + '</b><small>Guardado el ' + isoToAR(x.date || todayISO()) + '</small></span><span class="drow">' +
-        '<button type="button" class="btn small primary" data-act="rc-dl" data-key="' + k + '" data-id="' + id + '">Descargar</button>' +
-        '<a class="btn small" href="_blob/' + x.id + '" target="_blank" rel="noopener">Ver</a>' +
+        '<a class="btn small primary" href="_blob/' + x.id + '" target="_blank" rel="noopener">Ver</a>' +
         '<a class="btn small" target="_blank" rel="noopener" href="https://wa.me/' + (digits.length >= 8 ? digits : '') + '?text=' + encodeURIComponent(msg) + '">WhatsApp</a></span></div>';
     }).join('') + '</div></details>';
-  }).join('') : '<div class="empty"><h3>Todavía no hay recibos guardados</h3><p>Cuando descargues el recibo de un departamento cobrado, queda guardado acá con el nombre del departamento y el mes.</p></div>';
-  return '<section class="block"><div class="block-head"><h2>Recibos de alquileres</h2><p class="hint">Acá quedan guardados los recibos que descargás, ordenados por mes y con el nombre del departamento. Desde acá los podés bajar de nuevo o mandarlos por WhatsApp.</p></div>' + note + '<div class="clist">' + list + '</div></section>';
+  }).join('') : '<div class="empty"><h3>Todavía no hay recibos guardados</h3><p>Cuando generes el recibo de un departamento cobrado, queda guardado acá con el nombre del departamento y el mes.</p></div>';
+  return '<section class="block"><div class="block-head"><h2>Recibos de alquileres</h2><p class="hint">Acá quedan guardados los recibos que generás en Cobros del mes, ordenados por mes y con el nombre del departamento. Tocá Ver para abrirlo (desde ahí también lo podés guardar o compartir) o WhatsApp para escribirle al inquilino.</p></div>' + note + '<div class="clist">' + list + '</div></section>';
 }
 var WA_TPL = [
   ['hola', 'Saludo', function (n, p) { return 'Hola' + n + ', ¿cómo estás? Te escribo por el departamento ' + (p.name || '') + '. '; }],
