@@ -12,3 +12,8 @@ Después se abre como cualquier app, con su ícono, y funciona sin internet.
 
 ## Copia de seguridad
 En Ajustes hay un botón para descargar una copia de seguridad. Hacela seguido (la app avisa cada 30 días). Para pasar los datos a otro celular, descargá la copia en el primero y usá "Restaurar una copia" en el segundo.
+
+## App de Android (APK)
+La APK es una cubierta que abre esta misma página, así que **cada cambio que se sube acá aparece solo en la app**, sin tener que instalar nada de nuevo. Al descargar un recibo o la copia de seguridad se abre el menú de compartir (WhatsApp, Drive, guardar en el teléfono).
+
+Para generarla: en GitHub, pestaña **Actions** → **Crear APK** → botón **Run workflow**. A los 5 a 10 minutos aparece el archivo en **Releases** → **APK más reciente**.

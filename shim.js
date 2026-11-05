@@ -85,8 +85,18 @@
     delete: function (id) { return ready.then(function () { return tx('blobs', 'readwrite', function (s) { return s.delete(id); }); }).then(function () { return { deleted: true }; }); },
     list: function () { return Promise.resolve({ assets: [], usage: {} }); }
   };
+  /* Dentro de la app de Android (APK) no se puede "descargar" como en un navegador: se abre el menú de compartir
+     (WhatsApp, Drive, Guardar en el teléfono...). */
+  function nativeCap() { var c = window.Capacitor; return c && c.isNativePlatform && c.isNativePlatform() && c.Plugins && c.Plugins.Filesystem && c.Plugins.Share ? c : null; }
+  function toBase64(blob) { return new Promise(function (res, rej) { var fr = new FileReader(); fr.onload = function () { res(String(fr.result).split(',')[1] || ''); }; fr.onerror = function () { rej(fr.error); }; fr.readAsDataURL(blob); }); }
+  function nativeSave(cap, o) {
+    return toBase64(o.data).then(function (b64) { return cap.Plugins.Filesystem.writeFile({ path: o.filename, data: b64, directory: 'CACHE' }); })
+      .then(function (r) { return cap.Plugins.Share.share({ title: o.filename, dialogTitle: 'Guardar o enviar', files: [r.uri] }); })
+      .then(function () { return { status: 'saved' }; }, function (e) { if (/cancel/i.test(String(e && (e.message || e)))) throw { code: 'declined' }; throw { code: 'failed', message: String(e && e.message || e) }; });
+  }
   var downloads = {
     save: function (o) {
+      var cap = nativeCap(); if (cap) return nativeSave(cap, o);
       return new Promise(function (res, rej) {
         try {
           var url = URL.createObjectURL(o.data), a = document.createElement('a');
@@ -97,5 +107,21 @@
     }
   };
   var user = { can: function () { return Promise.resolve(true); }, isOwner: function () { return true; }, canEdit: function () { return true; }, id: function () { return Promise.resolve('local'); } };
+  /* En el APK: los enlaces a otras páginas (WhatsApp) se abren afuera y los archivos guardados se comparten. */
+  document.addEventListener('click', function (e) {
+    var cap = nativeCap(); if (!cap) return;
+    var a = e.target.closest && e.target.closest('a[href]'); if (!a) return;
+    var href = a.getAttribute('href') || '';
+    if (/^_blob\/[0-9a-f]{32}$/.test(href)) {
+      e.preventDefault();
+      var li = a.closest('li, .rcrow'), nm = li && li.querySelector('b'), name = (nm && nm.textContent.trim()) || 'archivo';
+      fetch(href).then(function (r) { return r.blob(); }).then(function (bl) {
+        var ext = /pdf/.test(bl.type) ? '.pdf' : /text/.test(bl.type) ? '.txt' : '';
+        return nativeSave(cap, { filename: /\.[A-Za-z0-9]{2,4}$/.test(name) ? name : name + ext, data: bl });
+      }).catch(function () {});
+    } else if (/^https?:\/\//.test(href) && a.target === '_blank') {
+      e.preventDefault(); window.location.href = href;
+    }
+  }, true);
   window.claude = { use: function (name) { return ready.then(function () { return name === 'db' ? db : name === 'assets' ? assets : name === 'downloads' ? downloads : name === 'user' ? user : null; }); } };
 })();

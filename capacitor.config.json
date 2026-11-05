@@ -1,0 +1,10 @@
+{
+  "appId": "ar.com.gestioninmobiliaria.app",
+  "appName": "Gestión Inmobiliaria",
+  "webDir": "www",
+  "server": {
+    "url": "https://angelagatiello.github.io/gestion-inmobiliaria/",
+    "allowNavigation": ["angelagatiello.github.io"],
+    "androidScheme": "https"
+  }
+}
