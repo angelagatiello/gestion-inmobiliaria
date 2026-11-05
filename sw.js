@@ -1,5 +1,5 @@
 /* Funciona sin internet: guarda la página y sirve los archivos subidos (contratos, fotos, recibos). */
-var CACHE = 'gestion-inmobiliaria-v1';
+var CACHE = 'gestion-inmobiliaria-v2';
 var SHELL = ['./', 'index.html', 'shim.js', 'jspdf.min.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 self.addEventListener('install', function (e) { e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(SHELL); }).then(function () { return self.skipWaiting(); })); });
 self.addEventListener('activate', function (e) {

@@ -491,6 +491,12 @@
   @media (prefers-reduced-motion: reduce) { .drawer, .drawer-bg { animation: none; } }
   .undobar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(64px + env(safe-area-inset-bottom, 0px)); z-index: 25; display: flex; align-items: center; gap: 10px; background: var(--ink); color: var(--bg); padding: 10px 10px 10px 16px; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.3); width: max-content; max-width: min(92vw, 520px); font-weight: 700; }
   .undobar[hidden] { display: none; }
+  .pdfv { position: fixed; inset: 0; z-index: 60; background: var(--bg); display: flex; flex-direction: column; padding-top: env(safe-area-inset-top, 0px); }
+  .pdfv-h { display: flex; gap: 8px; align-items: center; padding: 10px max(12px, env(safe-area-inset-right, 0px)) 10px max(12px, env(safe-area-inset-left, 0px)); border-bottom: 1px solid var(--line, #ccc); }
+  .pdfv-h b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+  .pdfv-b { flex: 1; overflow: auto; padding: 10px; background: rgba(128,128,128,.18); -webkit-overflow-scrolling: touch; }
+  .pdfv-b canvas { display: block; width: 100%; height: auto; margin: 0 auto 10px; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+  .pdfv-b p { text-align: center; padding: 20px; }
   .undobar .btn { background: var(--bg); color: var(--ink); border-color: var(--bg); }
   .undobar .x { background: none; border: 0; color: inherit; font-size: 24px; line-height: 1; padding: 2px 8px; cursor: pointer; }
   .nwxs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 4px 2px; }
@@ -1397,11 +1403,11 @@ function recibosView() {
       var x = rc[id], p = findProp(id), digits = String(p.phone || '').replace(/\D/g, ''), first = (p.tenant || '').trim().split(/\s+/)[0] || '';
       var msg = 'Hola' + (first ? ' ' + first : '') + ', te paso el recibo de ' + monthLabel(k) + ' de ' + (p.name || 'tu departamento') + '. ¡Gracias!';
       return '<div class="rcrow"><span class="rcn"><b>' + esc(x.name) + '</b><small>Guardado el ' + isoToAR(x.date || todayISO()) + '</small></span><span class="drow">' +
-        '<a class="btn small primary" href="_blob/' + x.id + '" target="_blank" rel="noopener">Ver</a>' +
+        '<button type="button" class="btn small primary" data-act="rc-view" data-key="' + k + '" data-id="' + id + '">Ver</button>' +
         '<a class="btn small" target="_blank" rel="noopener" href="https://wa.me/' + (digits.length >= 8 ? digits : '') + '?text=' + encodeURIComponent(msg) + '">WhatsApp</a></span></div>';
     }).join('') + '</div></details>';
   }).join('') : '<div class="empty"><h3>Todavía no hay recibos guardados</h3><p>Cuando generes el recibo de un departamento cobrado, queda guardado acá con el nombre del departamento y el mes.</p></div>';
-  return '<section class="block"><div class="block-head"><h2>Recibos de alquileres</h2><p class="hint">Acá quedan guardados los recibos que generás en Cobros del mes, ordenados por mes y con el nombre del departamento. Tocá Ver para abrirlo (desde ahí también lo podés guardar o compartir) o WhatsApp para escribirle al inquilino.</p></div>' + note + '<div class="clist">' + list + '</div></section>';
+  return '<section class="block"><div class="block-head"><h2>Recibos de alquileres</h2><p class="hint">Acá quedan guardados los recibos que generás en Cobros del mes, ordenados por mes y con el nombre del departamento. Tocá Ver para mirarlo en pantalla (desde ahí también lo podés guardar o compartir) o WhatsApp para escribirle al inquilino.</p></div>' + note + '<div class="clist">' + list + '</div></section>';
 }
 var WA_TPL = [
   ['hola', 'Saludo', function (n, p) { return 'Hola' + n + ', ¿cómo estás? Te escribo por el departamento ' + (p.name || '') + '. '; }],
@@ -2150,7 +2156,7 @@ function lastBillFor(concept) {
 }
 function scrollToCid(cid) { setTimeout(function () { var el = document.querySelector('[data-cid="' + cid + '"]'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 60); }
 function mutating(act) {
-  return ['tab', 'go', 'cal-year', 'cal-open', 'cal-sel', 'goto-cobro', 'month-prev', 'month-next', 'month-today', 'pdf', 'pdf-save', 'copy-msg', 'wa-tpl', 'wa-copy', 'backup', 'clone-local', 'copybox-close', 'confirm-no', 'reload', 'doc-dl', 'goto-bill', 'rc-dl', 'font-set', 'ry', 'ry-csv', 'menu-toggle', 'menu-close'].indexOf(act) < 0;
+  return ['tab', 'go', 'cal-year', 'cal-open', 'cal-sel', 'goto-cobro', 'month-prev', 'month-next', 'month-today', 'pdf', 'pdf-save', 'copy-msg', 'wa-tpl', 'wa-copy', 'backup', 'clone-local', 'copybox-close', 'confirm-no', 'reload', 'doc-dl', 'goto-bill', 'rc-dl', 'rc-view', 'font-set', 'ry', 'ry-csv', 'menu-toggle', 'menu-close'].indexOf(act) < 0;
 }
 
 function onClick(e) {
@@ -2214,6 +2220,10 @@ function onClick(e) {
     case 'doc-del': S.ui.confirm = 'doc:' + id + ':' + b.dataset.doc; render(); return;
     case 'doc-del-yes': removeDoc(id, b.dataset.doc); return;
     case 'doc-dl': downloadDoc(id, b.dataset.doc); return;
+    case 'rc-view': {
+      var vm = S.months[b.dataset.key], vr = vm && vm.receipts && vm.receipts[id]; if (!vr) return;
+      openPdfViewer(vr.id, vr.name); return;
+    }
     case 'rc-dl': {
       var rm = S.months[b.dataset.key], rr = rm && rm.receipts && rm.receipts[id]; if (!rr) return;
       fetch('_blob/' + rr.id).then(function (r2) { if (!r2.ok) throw new Error('http'); return r2.blob(); }).then(function (bl) { return saveFile(rr.name, bl); })
@@ -2574,6 +2584,48 @@ function saveFile(filename, blob) {
       var url = URL.createObjectURL(blob), w = window.open(url, '_blank');
       if (!w) toast('Este navegador no permite descargar desde acá. Abrí la página en la app de Claude.');
     } catch (e) { toast('Este navegador no permite descargar desde acá. Abrí la página en la app de Claude.'); }
+  });
+}
+var PDFJS_BASE = '';
+function loadPdfJs() {
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  return new Promise(function (res, rej) {
+    var sc = document.createElement('script'); sc.src = PDFJS_BASE + 'pdf.min.js';
+    sc.onload = function () { if (window.pdfjsLib) { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_BASE + 'pdf.worker.min.js'; res(window.pdfjsLib); } else rej(new Error('pdfjs')); };
+    sc.onerror = function () { rej(new Error('pdfjs')); }; document.head.appendChild(sc);
+  });
+}
+function closePdfViewer() { var v = document.getElementById('pdfv'); if (v) v.remove(); document.body.style.overflow = ''; }
+function openPdfViewer(blobId, name) {
+  closePdfViewer();
+  var v = document.createElement('div'); v.id = 'pdfv'; v.className = 'pdfv'; v.setAttribute('role', 'dialog'); v.setAttribute('aria-label', 'Recibo');
+  v.innerHTML = '<div class="pdfv-h"><b></b><button type="button" class="btn small" data-v="save">Guardar</button><button type="button" class="btn small primary" data-v="close">Cerrar</button></div><div class="pdfv-b"><p>Abriendo el recibo\u2026</p></div>';
+  v.querySelector('b').textContent = name || 'Recibo';
+  document.body.appendChild(v); document.body.style.overflow = 'hidden';
+  var body = v.querySelector('.pdfv-b'), bytes = null, blobRef = null;
+  v.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-v]'); if (!t) return;
+    if (t.dataset.v === 'close') closePdfViewer();
+    else if (blobRef) saveFile(name || 'recibo.pdf', blobRef);
+  });
+  fetch('_blob/' + blobId).then(function (r) { if (!r.ok) throw new Error('http'); return r.blob(); }).then(function (bl) {
+    blobRef = bl; return bl.arrayBuffer();
+  }).then(function (ab) { bytes = ab; return loadPdfJs(); }).then(function (lib) {
+    return lib.getDocument({ data: new Uint8Array(bytes) }).promise;
+  }).then(function (pdf) {
+    body.innerHTML = '';
+    var chain = Promise.resolve(), w = Math.max(320, Math.min(body.clientWidth || 360, 900)), ratio = Math.min(window.devicePixelRatio || 1, 2);
+    for (var n = 1; n <= pdf.numPages; n++) (function (n) {
+      chain = chain.then(function () { return pdf.getPage(n); }).then(function (page) {
+        var v1 = page.getViewport({ scale: 1 }), sc = (w / v1.width) * ratio, vp = page.getViewport({ scale: sc });
+        var cv = document.createElement('canvas'); cv.width = Math.floor(vp.width); cv.height = Math.floor(vp.height); body.appendChild(cv);
+        return page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+      });
+    })(n);
+    return chain;
+  }).catch(function () {
+    if (!document.getElementById('pdfv')) return;
+    body.innerHTML = '<p>No se pudo mostrar el recibo ac\u00e1. Tocá <b>Guardar</b> para bajarlo y abrirlo con otra aplicaci\u00f3n.</p>';
   });
 }
 function pdfName(p, key, paid) {
