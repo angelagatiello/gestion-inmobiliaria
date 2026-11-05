@@ -1490,7 +1490,7 @@ function ajustesView() {
     '<label class="f"><span>Día del mes en que vence el pago del alquiler</span><input class="in" type="number" min="1" max="31" inputmode="numeric" data-f="s.rentDueDay" value="' + S.config.settings.rentDueDay + '"' + ro + '><small class="help">Si un departamento paga otro día, lo cambiás en Departamentos.</small></label>' +
     '<label class="f"><span>Avisarme que vence el alquiler con (días de anticipación)</span><input class="in" type="number" min="0" max="30" inputmode="numeric" data-f="s.rentDays" value="' + S.config.settings.rentDays + '"' + ro + '><small class="help">Con 0 te aviso recién cuando ya venció.</small></label>' +
     '</div></div>' +
-    fontCardHtml() + '<div class="card"><h3>Copia de seguridad</h3><p class="help">' + where + '</p><p class="help"><b>' + (S.config.settings.lastBackup ? 'Última copia: ' + isoToAR(S.config.settings.lastBackup) : 'Todavía no hiciste ninguna copia.') + '</b> La app te avisa en Novedades cuando pasaron 30 días.</p>' +
+    saveCardHtml() + fontCardHtml() + '<div class="card"><h3>Copia de seguridad</h3><p class="help">' + where + '</p><p class="help"><b>' + (S.config.settings.lastBackup ? 'Última copia: ' + isoToAR(S.config.settings.lastBackup) : 'Todavía no hiciste ninguna copia.') + '</b> La app te avisa en Novedades cuando pasaron 30 días.</p>' +
     '<div class="row-actions"><button type="button" class="btn" data-act="backup">Descargar copia de seguridad</button>' +
     '<label class="btn">Restaurar una copia<input type="file" accept=".json,application/json" data-f="restore" hidden></label></div></div>' + accessCardHtml() + resetCardHtml() + '</section>';
 }
@@ -2156,7 +2156,7 @@ function lastBillFor(concept) {
 }
 function scrollToCid(cid) { setTimeout(function () { var el = document.querySelector('[data-cid="' + cid + '"]'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 60); }
 function mutating(act) {
-  return ['tab', 'go', 'cal-year', 'cal-open', 'cal-sel', 'goto-cobro', 'month-prev', 'month-next', 'month-today', 'pdf', 'pdf-save', 'copy-msg', 'wa-tpl', 'wa-copy', 'backup', 'clone-local', 'copybox-close', 'confirm-no', 'reload', 'doc-dl', 'goto-bill', 'rc-dl', 'rc-view', 'font-set', 'ry', 'ry-csv', 'menu-toggle', 'menu-close'].indexOf(act) < 0;
+  return ['tab', 'go', 'cal-year', 'cal-open', 'cal-sel', 'goto-cobro', 'month-prev', 'month-next', 'month-today', 'pdf', 'pdf-save', 'copy-msg', 'wa-tpl', 'wa-copy', 'backup', 'clone-local', 'copybox-close', 'confirm-no', 'reload', 'doc-dl', 'goto-bill', 'rc-dl', 'rc-view', 'save-choose', 'save-clear', 'save-name', 'font-set', 'ry', 'ry-csv', 'menu-toggle', 'menu-close'].indexOf(act) < 0;
 }
 
 function onClick(e) {
@@ -2311,6 +2311,9 @@ function onClick(e) {
     case 'sig-remove': S.config.owner.signature = ''; persistConfig(); toast('Se quitó la firma guardada.'); render(); return;
     case 'reset-ask': S.ui.confirm = 'reset'; render(); return;
     case 'reset-yes': resetAll(); return;
+    case 'save-choose': window.giSave.choose().then(function (n) { toast('Listo, ahora se guarda en la carpeta ' + n + '.'); softRender(); }, function (e) { if (!e || e.name !== 'AbortError') toast('No se pudo elegir la carpeta.'); }); return;
+    case 'save-clear': Promise.resolve(window.giSave.clear()).then(function () { toast('Listo. Vuelve a guardar en Descargas.'); softRender(); }); return;
+    case 'save-name': { var sn = $('#save-name'), nn = window.giSave.setName(sn ? sn.value : ''); toast(nn ? 'Listo, se guarda en Documentos/' + nn : 'Listo, se abre el men\u00fa para guardar cada vez.'); softRender(); return; }
     case 'font-set': try { localStorage.setItem('ga-font', b.dataset.v); } catch (x) {} applyFont(); render(); return;
     case 'ry': S.ui.ryear = (S.ui.ryear || +currentKey().slice(0, 4)) + (+b.dataset.d); render(); return;
     case 'ry-csv': { var yy = S.ui.ryear || +currentKey().slice(0, 4); saveFile('Resumen ' + yy + '.csv', new Blob([resumenCsv(yy)], { type: 'text/csv' })); return; }
@@ -2571,11 +2574,11 @@ function copyText(text) {
     else fallback();
   } catch (e) { fallback(); }
 }
-function saveFile(filename, blob) {
+function saveFile(filename, blob, pick) {
   var cl = window.claude, get = cl && cl.use ? cl.use('downloads').catch(function () { return null; }) : Promise.resolve(null);
   return get.then(function (dl) {
     if (dl) {
-      return dl.save({ filename: filename, data: blob }).then(function () { toast('Listo, se descargó ' + filename); return true; }, function (err) {
+      return dl.save({ filename: filename, data: blob, pick: !!pick }).then(function (r) { toast('Listo, se guard\u00f3 ' + filename + (r && r.where ? ' en ' + r.where : '')); return true; }, function (err) {
         if (err && err.code === 'declined') return;
         toast('No se pudo descargar el archivo.');
       });
@@ -2599,14 +2602,14 @@ function closePdfViewer() { var v = document.getElementById('pdfv'); if (v) v.re
 function openPdfViewer(blobId, name) {
   closePdfViewer();
   var v = document.createElement('div'); v.id = 'pdfv'; v.className = 'pdfv'; v.setAttribute('role', 'dialog'); v.setAttribute('aria-label', 'Recibo');
-  v.innerHTML = '<div class="pdfv-h"><b></b><button type="button" class="btn small" data-v="save">Guardar</button><button type="button" class="btn small primary" data-v="close">Cerrar</button></div><div class="pdfv-b"><p>Abriendo el recibo\u2026</p></div>';
+  v.innerHTML = '<div class="pdfv-h"><b></b><button type="button" class="btn small" data-v="save">Guardar</button>' + (window.giSave && window.giSave.canPickEach ? '<button type="button" class="btn small" data-v="saveas">Guardar como\u2026</button>' : '') + '<button type="button" class="btn small primary" data-v="close">Cerrar</button></div><div class="pdfv-b"><p>Abriendo el recibo\u2026</p></div>';
   v.querySelector('b').textContent = name || 'Recibo';
   document.body.appendChild(v); document.body.style.overflow = 'hidden';
   var body = v.querySelector('.pdfv-b'), bytes = null, blobRef = null;
   v.addEventListener('click', function (e) {
     var t = e.target.closest('[data-v]'); if (!t) return;
     if (t.dataset.v === 'close') closePdfViewer();
-    else if (blobRef) saveFile(name || 'recibo.pdf', blobRef);
+    else if (blobRef) saveFile(name || 'recibo.pdf', blobRef, t.dataset.v === 'saveas');
   });
   fetch('_blob/' + blobId).then(function (r) { if (!r.ok) throw new Error('http'); return r.blob(); }).then(function (bl) {
     blobRef = bl; return bl.arrayBuffer();
@@ -2867,6 +2870,20 @@ function undoPaint() {
 var FONTS = { n: 1, l: 1.15, xl: 1.3 };
 function fontKey() { try { var v = localStorage.getItem('ga-font'); return FONTS[v] ? v : 'n'; } catch (e) { return 'n'; } }
 function applyFont() { var a = document.getElementById('app'); if (a) a.style.zoom = FONTS[fontKey()]; }
+function saveCardHtml() {
+  var g = window.giSave; if (!g || !g.kind) return '';
+  var nm = g.name(), body;
+  if (g.kind === 'dir') {
+    body = '<p class="help">Elegí una carpeta una sola vez y los recibos, contratos y copias se guardan ah\u00ed, sin preguntar cada vez. Si no elegís ninguna, se guardan en Descargas. En <b>Ver</b> siempre tenés el bot\u00f3n <b>Guardar como\u2026</b> para elegir otro lugar en el momento.</p>' +
+      '<p class="help"><b>' + (nm ? 'Carpeta elegida: ' + esc(nm) : 'Todav\u00eda no elegiste una carpeta') + '</b></p>' +
+      '<div class="row-actions"><button type="button" class="btn" data-act="save-choose">' + (nm ? 'Cambiar de carpeta' : 'Elegir carpeta') + '</button>' + (nm ? '<button type="button" class="btn" data-act="save-clear">Dejar de usar esa carpeta</button>' : '') + '</div>';
+  } else {
+    body = '<p class="help">Escrib\u00ed un nombre y los archivos se guardan solos en la carpeta <b>Documentos</b> de tu celular, dentro de una carpeta con ese nombre (se crea sola). Si lo dej\u00e1s vac\u00edo, se abre el men\u00fa para compartir o guardar cada vez. En <b>Ver</b>, <b>Guardar como\u2026</b> abre ese men\u00fa.</p>' +
+      '<label class="f"><span>Nombre de la carpeta</span><input class="in" id="save-name" value="' + esc(nm) + '" placeholder="Ej.: Recibos alquileres" maxlength="60"></label>' +
+      '<div class="row-actions"><button type="button" class="btn primary" data-act="save-name">Guardar este nombre</button>' + (nm ? '<button type="button" class="btn" data-act="save-clear">Dejar de usar carpeta</button>' : '') + '</div>';
+  }
+  return '<div class="card"><h3>D\u00f3nde se guardan los archivos</h3>' + body + '</div>';
+}
 function fontCardHtml() {
   var cur = fontKey();
   return '<div class="card"><h3>Tamaño de las letras</h3><p class="help">Se guarda en este dispositivo. Si te cuesta leer, elegí una más grande.</p><div class="chips fontrow" role="group" aria-label="Tamaño de las letras">' +
