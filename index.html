@@ -1356,9 +1356,13 @@ function stubView(p, c) {
   var cmo = contractMonth(p, key);
   tenant += cmo ? '<br><b>Mes ' + cmo.n + ' de 12 del contrato</b>' + (cmo.year > 1 ? ' (año ' + cmo.year + ')' : '') : '<br><small>Cargá el inicio del contrato (en Contratos) para que el recibo diga qué mes es.</small>';
   if ((p.svcs || []).length) tenant += '<br><b>' + esc(dueText(p, key).replace(/^En [^ ]+ \d+ /, 'Este mes ')) + '</b>';
-  var rcBox = r.paid ? '<div class="rcbox"><b>Recibo listo para enviar</b><div class="actions"><button type="button" class="btn primary" data-act="pdf" data-id="' + p.id + '">Descargar recibo (PDF)</button>' +
+  var hasRc = !!(m.receipts && m.receipts[p.id]), canArch = !!(assetsApi && S.mode === 'cloud' && !S.demo && !RO());
+  var rcBox = r.paid ? '<div class="rcbox"><b>' + (hasRc ? 'Recibo guardado \u2713' : 'Recibo listo') + '</b><div class="actions">' +
+    (canArch ? '<button type="button" class="btn primary" data-act="pdf-save" data-id="' + p.id + '">' + (hasRc ? 'Volver a generar el recibo' : 'Generar y guardar recibo') + '</button>' +
+      (hasRc ? '<button type="button" class="btn" data-act="tab" data-top="1" data-tab="recibos">Ir a Recibos para descargarlo</button>' : '')
+      : '<button type="button" class="btn primary" data-act="pdf" data-id="' + p.id + '">Descargar recibo (PDF)</button>') +
     '<a class="btn wa" data-wa="' + p.id + '" target="_blank" rel="noopener" href="https://wa.me/">Enviar por WhatsApp</a></div>' +
-    '<p class="help">1) Descargá el recibo: queda en la carpeta Descargas de tu celular con el nombre <b>' + esc(pdfName(p, key, true)) + '</b>, y también guardado en la pestaña Recibos. 2) Tocá WhatsApp, y en el chat usá el clip &#128206; &rarr; Documento y elegí ese archivo. La página no puede adjuntarlo sola.' + (p.phone ? '' : ' Si cargás el WhatsApp del inquilino en Departamentos, se abre directo su chat.') + '</p></div>' : '';
+    '<p class="help">' + (canArch ? 'El recibo se guarda en la pesta\u00f1a <b>Recibos de alquileres</b>, con el nombre <b>' + esc(pdfName(p, key, true)) + '</b>. Desde all\u00ed lo descarg\u00e1s o lo mand\u00e1s por WhatsApp: no se descarga dos veces.' : 'Queda en la carpeta Descargas con el nombre <b>' + esc(pdfName(p, key, true)) + '</b>. Para mandarlo por WhatsApp, us\u00e1 el clip &#128206; &rarr; Documento.') + (p.phone ? '' : ' Si carg\u00e1s el WhatsApp del inquilino en Departamentos, se abre directo su chat.') + '</p></div>' : '';
   var openS = S.ui.openC && S.ui.openC['s:' + p.id];
   return '<details class="cdet" data-cid="s:' + p.id + '"' + (openS ? ' open' : '') + '><summary><span class="csum st"><span class="cs-name"><b>' + esc(p.name || 'Sin nombre') + '</b><span class="tenant">' + esc(p.tenant || 'Sin inquilino') + (cmo ? ' · Recibo ' + cmo.n + ' de 12' : '') + '</span></span>' +
     pillHtml(r) + '<strong class="sum-total" data-bind="ptotal:' + p.id + '"></strong></span></summary>' +
@@ -2147,7 +2151,7 @@ function lastBillFor(concept) {
 }
 function scrollToCid(cid) { setTimeout(function () { var el = document.querySelector('[data-cid="' + cid + '"]'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 60); }
 function mutating(act) {
-  return ['tab', 'go', 'cal-year', 'cal-open', 'cal-sel', 'goto-cobro', 'month-prev', 'month-next', 'month-today', 'pdf', 'copy-msg', 'wa-tpl', 'wa-copy', 'backup', 'clone-local', 'copybox-close', 'confirm-no', 'reload', 'doc-dl', 'goto-bill', 'rc-dl', 'font-set', 'ry', 'ry-csv', 'menu-toggle', 'menu-close'].indexOf(act) < 0;
+  return ['tab', 'go', 'cal-year', 'cal-open', 'cal-sel', 'goto-cobro', 'month-prev', 'month-next', 'month-today', 'pdf', 'pdf-save', 'copy-msg', 'wa-tpl', 'wa-copy', 'backup', 'clone-local', 'copybox-close', 'confirm-no', 'reload', 'doc-dl', 'goto-bill', 'rc-dl', 'font-set', 'ry', 'ry-csv', 'menu-toggle', 'menu-close'].indexOf(act) < 0;
 }
 
 function onClick(e) {
@@ -2278,6 +2282,7 @@ function onClick(e) {
       commit(key); S.ui.focus = (act === 'owner-inc' ? 'oinc:' : 'odec:') + id; render(); return;
     case 'pay-on': m = getMonth(key); m.paid[id] = { on: true, date: todayISO(), method: 'Transferencia' }; commit(key); render(); return;
     case 'pdf': savePdf(id); return;
+    case 'pdf-save': savePdf(id, true); return;
     case 'copy-msg': copyText(messageText(id)); return;
     case 'wa-tpl': p = findProp(id); if (!p) return;
       var tp = WA_TPL.filter(function (x) { return x[0] === b.dataset.t; })[0]; if (!tp) return;
@@ -2577,13 +2582,14 @@ function pdfName(p, key, paid) {
   return n + ' - ' + monthLabel(key) + (paid ? '' : ' (detalle)') + '.pdf';
 }
 function archiveReceipt(key, pid, name, blob) {
-  if (!assetsApi || S.mode !== 'cloud' || S.demo || RO()) return;
+  if (!assetsApi || S.mode !== 'cloud' || S.demo || RO()) return Promise.resolve(false);
   var m = getMonth(key); m.receipts = m.receipts || {}; var prev = m.receipts[pid];
-  assetsApi.upload(blob, { type: 'application/pdf' }).then(function (res) {
+  return assetsApi.upload(blob, { type: 'application/pdf' }).then(function (res) {
     m.receipts[pid] = { id: res.id, name: name, date: todayISO() }; commit(key);
     if (prev && prev.id !== res.id) assetsApi.delete(prev.id).catch(function () {});
     if (S.ui.tab === 'recibos') softRender();
-  }, function () {});
+    return true;
+  }, function () { return false; });
 }
 function safeName(s) { return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9._ -]+/g, '').trim().replace(/\s+/g, '-'); }
 
@@ -2756,7 +2762,7 @@ function prepSig() {
     img.src = sg;
   });
 }
-function savePdf(id) {
+function savePdf(id, onlySave) {
   if (!window.jspdf) { toast('No se pudo cargar el generador de PDF. Revisá la conexión y recargá la página.'); return; }
   prepSig().then(function () {
     var doc; S.sigFailed = false;
@@ -2764,6 +2770,13 @@ function savePdf(id) {
     if (!doc) return;
     var c = compute(S.ui.key), r = c.rows[id], paid = r.paid;
     var name = pdfName(r.prop, S.ui.key, paid), blob = doc.output('blob');
+    if (paid && onlySave) {
+      archiveReceipt(S.ui.key, id, name, blob).then(function (ok) {
+        if (ok) { toast(S.sigFailed ? 'Ojo: el recibo se guard\u00f3 SIN firma. Volv\u00e9 a firmar en Ajustes.' : (!S.config.owner.signature ? 'Recibo guardado, pero sin firma: guard\u00e1 tu firma en Ajustes.' : 'Recibo guardado en Recibos de alquileres.')); render(); }
+        else { toast('No se pudo guardar. Lo descargo directamente.'); saveFile(name, blob); }
+      });
+      return;
+    }
     if (paid) archiveReceipt(S.ui.key, id, name, blob);
     if (paid && S.sigFailed) toast('Ojo: el recibo salió SIN firma porque no se pudo leer la firma guardada. Volvé a firmar en Ajustes.');
     else if (paid && !S.config.owner.signature) toast('El recibo salió sin firma: todavía no guardaste tu firma en Ajustes.');
