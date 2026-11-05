@@ -1371,7 +1371,7 @@ function stubView(p, c) {
     '<div class="rent-in"><div class="money"><i>$</i><input id="rent-' + p.id + '" inputmode="decimal" autocomplete="off" data-f="rent" data-id="' + p.id + '" data-fid="rent:' + p.id + '" value="' + esc(fmtInput(r.rent)) + '" placeholder="0"' + RD() + '></div><small class="err" hidden>Usá solo números.</small></div></div>' +
     lines + '</div><div class="perf"></div>' +
     '<div class="total"><span>Total a cobrar</span><strong data-bind="ptotal:' + p.id + '"></strong></div>' + pay + shortBox +
-    '<div class="actions">' + (r.paid ? '' : '<button type="button" class="btn" data-act="pdf" data-id="' + p.id + '">Descargar detalle (PDF)</button>' +
+    '<div class="actions">' + (r.paid ? '' : (canArch ? '<button type="button" class="btn" data-act="pdf-save" data-id="' + p.id + '">' + (hasRc ? 'Volver a generar el detalle' : 'Guardar detalle en Recibos') + '</button>' + (hasRc ? '<button type="button" class="btn" data-act="tab" data-top="1" data-tab="recibos">Ir a Recibos para verlo y enviarlo</button>' : '') : '<button type="button" class="btn" data-act="pdf" data-id="' + p.id + '">Descargar detalle (PDF)</button>') +
     '<a class="btn wa" data-wa="' + p.id + '" target="_blank" rel="noopener" href="https://wa.me/">Enviar por WhatsApp</a>') +
     '<button type="button" class="btn" data-act="copy-msg" data-id="' + p.id + '">Copiar mensaje</button></div>' +
     '<label class="f obs"><span>Observaciones para el recibo (opcional)</span><input class="in" data-f="note" data-id="' + p.id + '" value="' + esc(m.notes[p.id] || '') + '" placeholder="Ej.: incluye ajuste trimestral"' + RD() + '></label></div></details>';
@@ -2769,9 +2769,9 @@ function savePdf(id, onlySave) {
     if (!doc) return;
     var c = compute(S.ui.key), r = c.rows[id], paid = r.paid;
     var name = pdfName(r.prop, S.ui.key, paid), blob = doc.output('blob');
-    if (paid && onlySave) {
+    if (onlySave) {
       archiveReceipt(S.ui.key, id, name, blob).then(function (ok) {
-        if (ok) { toast(S.sigFailed ? 'Ojo: el recibo se guard\u00f3 SIN firma. Volv\u00e9 a firmar en Ajustes.' : (!S.config.owner.signature ? 'Recibo guardado, pero sin firma: guard\u00e1 tu firma en Ajustes.' : 'Recibo guardado en Recibos de alquileres.')); render(); }
+        if (ok) { toast(!paid ? 'Detalle guardado en Recibos de alquileres.' : S.sigFailed ? 'Ojo: el recibo se guard\u00f3 SIN firma. Volv\u00e9 a firmar en Ajustes.' : (!S.config.owner.signature ? 'Recibo guardado, pero sin firma: guard\u00e1 tu firma en Ajustes.' : 'Recibo guardado en Recibos de alquileres.')); render(); }
         else { toast('No se pudo guardar. Lo descargo directamente.'); saveFile(name, blob); }
       });
       return;
