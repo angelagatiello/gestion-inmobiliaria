@@ -2867,7 +2867,7 @@ function undoPaint() {
 }
 
 /* ---------------------------------------------------------------- tamaño de letra (por dispositivo) */
-var FONTS = { n: 1, l: 1.15, xl: 1.3 };
+var FONTS = { xs: 0.8, s: 0.9, n: 1, l: 1.15, xl: 1.3 };
 function fontKey() { try { var v = localStorage.getItem('ga-font'); return FONTS[v] ? v : 'n'; } catch (e) { return 'n'; } }
 function applyFont() { var a = document.getElementById('app'); if (a) a.style.zoom = FONTS[fontKey()]; }
 function saveCardHtml() {
@@ -2886,8 +2886,8 @@ function saveCardHtml() {
 }
 function fontCardHtml() {
   var cur = fontKey();
-  return '<div class="card"><h3>Tamaño de las letras</h3><p class="help">Se guarda en este dispositivo. Si te cuesta leer, elegí una más grande.</p><div class="chips fontrow" role="group" aria-label="Tamaño de las letras">' +
-    [['n', 'Normal'], ['l', 'Grande'], ['xl', 'Muy grande']].map(function (x) { return '<button type="button" class="chip" data-act="font-set" data-v="' + x[0] + '" aria-pressed="' + (cur === x[0]) + '">' + x[1] + '</button>'; }).join('') + '</div></div>';
+  return '<div class="card"><h3>Tamaño de la pantalla</h3><p class="help">Achica o agranda todo: letras, botones y listas. Se guarda en este dispositivo. Si querés ver más cosas juntas, elegí Chico o Muy chico; si te cuesta leer, elegí una más grande.</p><div class="chips fontrow" role="group" aria-label="Tamaño de las letras">' +
+    [['xs', 'Muy chico'], ['s', 'Chico'], ['n', 'Normal'], ['l', 'Grande'], ['xl', 'Muy grande']].map(function (x) { return '<button type="button" class="chip" data-act="font-set" data-v="' + x[0] + '" aria-pressed="' + (cur === x[0]) + '">' + x[1] + '</button>'; }).join('') + '</div></div>';
 }
 function accessCardHtml() {
   return '<div class="card"><h3>Tus datos y esta app</h3>' +
